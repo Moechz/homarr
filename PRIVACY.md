@@ -11,7 +11,8 @@
   does not receive your boards, links, credentials or usage data, and has no
   account system of its own.
 - Homarr's upstream code contains **one telemetry feature that is enabled by
-  default**: once a day it sends an aggregate usage snapshot to PostHog (see
+  default**: about once a week (the upstream code uses a 7-day interval) it
+  sends an aggregate usage snapshot to PostHog (see
   §6). It contains an anonymous instance ID and entity counts only — no board
   names, URLs, credentials or user names. You can switch it off in
   **Settings → Analytics → General**.
@@ -92,7 +93,7 @@ container and your browser contact only the endpoints below.
 
 | Service | Endpoint | Data sent | Destination / region | When |
 |---|---|---|---|---|
-| PostHog (upstream usage analytics) | `https://us.i.posthog.com` | event `server-analytics`: a random instance UUID and aggregate entity counts (for example number of users, boards, apps and integrations). No board names, URLs, credentials, user names or IP geolocation (`disableGeoip: true`). | PostHog Inc., **United States** | once per day, starting on first start. **Enabled by default** — switch it off in **Settings → Analytics → General**. |
+| PostHog (upstream usage analytics) | `https://us.i.posthog.com` | event `server-analytics`: a random instance UUID and aggregate entity counts (for example number of users, boards, apps and integrations). No board names, URLs, credentials, user names or IP geolocation (`disableGeoip: true`). | PostHog Inc., **United States** | at most once every 7 days, starting on first start. **Enabled by default** — switch it off in **Settings → Analytics → General**. |
 | Icon index refresh | `https://api.github.com/repos/homarr-labs/dashboard-icons/git/trees/main`, `…/selfhst/icons/git/trees/main`, `…/simple-icons/simple-icons/git/trees/master` | plain GitHub API read, no user data beyond the request itself | GitHub, Inc., **United States** | on start and periodically, to build the icon picker |
 | Icon images | `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/…`, `https://cdn.jsdelivr.net/gh/selfhst/icons/…`, `https://cdn.jsdelivr.net/gh/PokeAPI/sprites/…`, `https://cdn.jsdelivr.net/gh/PapirusDevelopmentTeam/…` | your browser's IP address, user agent and the requested icon path | jsDelivr CDN (global, operated from the **EU/US**) | when a board renders an icon |
 | Image pull | `registry-1.docker.io` (Docker Hub) or your configured registry mirror | anonymous image pull request | Docker Hub, **United States** | at installation and when the image is updated |

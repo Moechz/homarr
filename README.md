@@ -67,7 +67,7 @@ directory; the container-internal `/tmp` is discarded with the container.
 2. Open `http://<NAS-IP>:8149/` and complete the onboarding wizard: create the
    administrator account, choose a board layout and add your first apps.
 3. Optional: disable **Settings → Analytics → General** if you do not want the
-   daily aggregate usage snapshot sent to PostHog (see `PRIVACY.md` §6).
+   weekly aggregate usage snapshot sent to PostHog (see `PRIVACY.md` §6).
 
 No Docker socket is mounted. The optional Docker integration therefore needs a
 reachable Docker API endpoint that you configure yourself; this package does not
@@ -90,7 +90,7 @@ grant access to the host daemon.
 
 Homarr stores its data locally and has no developer-operated backend. The
 upstream application nevertheless contacts a number of third-party services,
-including a **daily PostHog usage snapshot that is enabled by default**, the
+including a **weekly PostHog usage snapshot that is enabled by default**, the
 Open-Meteo weather/geocoding APIs, jsDelivr and GitHub for icons, Docker Hub, and
 whatever widgets you configure (Sonarr, Radarr, Pi-hole, RSS, calendars, AI
 providers and so on).
