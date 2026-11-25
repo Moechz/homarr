@@ -15,8 +15,11 @@
 #           non-root user, no privileged mode, no network_mode: host, no
 #           cap_add, explicit TZ, a healthcheck on the only service, and
 #           x-app-meta as the last block.
-# Wrapper : the upstream image runs as root; the entrypoint below replaces
-#           it so the service can run as an unprivileged user.
+# Wrapper : the upstream image starts as root so it can chown its directories
+#           and drop privileges. The entrypoint below replaces that with a
+#           start directly as uid 1000 (the installer chowns the data volume),
+#           then starts nginx, redis and the Next.js server exactly like the
+#           upstream entrypoint does.
 # Escaping: docker compose interpolates ${VAR}/$VAR in compose files, so any
 #           '$' meant for the shell is written '$$'.
 #
@@ -32,6 +35,10 @@ services:
     container_name: homarrdocker
     restart: unless-stopped
     user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -49,8 +56,8 @@ services:
       test: ["CMD", "node", "-e", "require(\"http\").get(\"http://127.0.0.1:7575/\",r=>process.exit(r.statusCode<500?0:1)).on(\"error\",()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 120s
 
 # TOS App Center web metadata (must be the last block of the file):
 # web.port is the published host port above, protocol is http.

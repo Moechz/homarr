@@ -1,0 +1,173 @@
+# ===========================================================================
+# Homarr for TerraMaster TOS 7 (Docker application)
+# ===========================================================================
+# Upstream image : moechz/homarr:v2.13.0 (Docker Hub, used unmodified)
+#                  -> https://github.com/homarr-labs/homarr
+#
+# Ports   : host 8149 -> container 7575. The host port is in the
+#           TOS-recommended 8000-19999 range and is not one of the reserved
+#           ports (22/80/443/445/3306/5050/5432/6379/8181/8443).
+# Volumes : all persistent data lives below
+#           /Volume1/DockerAppData/homarrdocker/. The /Volume* wildcard is
+#           deliberately NOT used: the platform does not expand it.
+# TOS rules honoured: Docker Hub image with a fixed tag (never ':latest'),
+#           container_name == application id, restart: unless-stopped,
+#           non-root user, no privileged mode, no network_mode: host, no
+#           cap_add, explicit TZ, a healthcheck on the only service, and
+#           x-app-meta as the last block.
+# Wrapper : the upstream image starts as root so it can chown its directories
+#           and drop privileges. The entrypoint below replaces that with a
+#           start directly as uid 1000 (the installer chowns the data volume),
+#           then starts nginx, redis and the Next.js server exactly like the
+#           upstream entrypoint does.
+# Escaping: docker compose interpolates ${VAR}/$VAR in compose files, so any
+#           '$' meant for the shell is written '$$'.
+#
+# NOTE for maintainers: never place a comment line directly in front of a
+# "- value" sequence item (ports, volumes, ...). The official
+# TOSAppSelfTestingTool parses the compose file line by line; a comment inside
+# a sequence makes it skip its permission sync, the mounted directories stay
+# root-owned and the non-root container cannot write into them.
+
+services:
+  homarrdocker:
+    image: moechz/homarr:v2.13.0
+    container_name: homarrdocker
+    restart: unless-stopped
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        #!/bin/sh
+        # ===========================================================================
+        # TOS wrapper entrypoint for Homarr.
+        #
+        # The upstream image starts as root, chowns its writable directories and then
+        # drops to PUID/PGID with setpriv.  The TOS package runs the container as
+        # 1000:1000 from the first process (no root at any point), and the installer
+        # chowns the mounted data directory to that user, so the chown step is not
+        # needed here.  This script reproduces the rest of the upstream startup:
+        #
+        #   * persistent SECRET_ENCRYPTION_KEY (generated once, kept on the volume)
+        #   * SQLite migrations
+        #   * nginx on 7575 -> Next.js on 3000 and /websockets -> 3001
+        #   * redis and the Next.js standalone server
+        #
+        # Running nginx matters: the upstream image serves the UI through nginx, which
+        # also proxies the WebSocket endpoint.  Starting Next.js directly on 7575 (as
+        # earlier packaging iterations did) leaves /websockets unhandled.
+        # ===========================================================================
+        set -e
+        set -u
+
+        # Keep the database, the encryption key and the redis dump private.
+        umask 077
+
+        mkdir -p /appdata/db /appdata/redis /appdata/trusted-certificates
+
+        # --- persistent encryption key ---------------------------------------------
+        F=/appdata/encryption_key
+        if [ ! -s "$$F" ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$$F"
+            chmod 600 "$$F"
+        fi
+        SECRET_ENCRYPTION_KEY="$$(cat "$$F")"
+        export SECRET_ENCRYPTION_KEY
+
+        # --- database migrations ---------------------------------------------------
+        if [ "$${DB_MIGRATIONS_DISABLED:-false}" != "true" ]; then
+            echo "Running DB migrations"
+            DISABLE_REDIS_LOGS=true node ./db/migrations/"$$DB_DIALECT"/migrate.cjs ./db/migrations/"$$DB_DIALECT" || {
+                echo "ERROR: DB migrations failed, aborting startup"
+                exit 1
+            }
+        fi
+
+        # --- secrets and request identity ------------------------------------------
+        AUTH_SECRET="$$(openssl rand -base64 32)"
+        export AUTH_SECRET
+        HOMARR_REQUEST_IDENTITY_SECRET="$$(openssl rand -hex 32)"
+        export HOMARR_REQUEST_IDENTITY_SECRET
+        NGINX_TRUSTED_PROXIES="$$(node ./scripts/trusted-proxies.mjs)" || exit 1
+        export NGINX_TRUSTED_PROXIES
+
+        # --- nginx -----------------------------------------------------------------
+        NGINX_LISTEN_IPV6=''
+        if [ "$${HOMARR_DISABLE_IPV6:-false}" != "true" ] && grep -q . /proc/net/if_inet6 2>/dev/null; then
+            NGINX_LISTEN_IPV6='listen [::]:7575;'
+        fi
+        NGINX_USER=''
+        export NGINX_USER NGINX_LISTEN_IPV6
+
+        envsubst '$${NGINX_USER} $${NGINX_LISTEN_IPV6} $${NGINX_TRUSTED_PROXIES} $${HOMARR_REQUEST_IDENTITY_SECRET}' \
+            < /etc/nginx/templates/nginx.conf > /tmp/nginx.conf
+        # The image ships root-owned log files; logs go to stdout/stderr instead.
+        sed -e 's|^http {|http {\n    access_log off;\n    error_log /dev/stderr warn;|' \
+            /tmp/nginx.conf > /tmp/nginx.conf.new
+        mv /tmp/nginx.conf.new /tmp/nginx.conf
+        nginx -t -c /tmp/nginx.conf -g 'pid /tmp/nginx.pid;' || exit 1
+        nginx -c /tmp/nginx.conf -g 'daemon off; pid /tmp/nginx.pid;' &
+        NGINX_PID=$$!
+
+        # --- redis -----------------------------------------------------------------
+        redis-server /app/redis.conf --protected-mode yes &
+        REDIS_PID=$$!
+
+        # --- Next.js ---------------------------------------------------------------
+        # nginx proxies to 127.0.0.1:3000; the websocket server listens on 3001.
+        HOSTNAME=127.0.0.1
+        PORT=3000
+        export HOSTNAME PORT
+        NODE_OPTIONS="--max-semi-space-size=4 $${NODE_OPTIONS:-}"
+        export NODE_OPTIONS
+        node apps/nextjs/server.js &
+        NEXTJS_PID=$$!
+
+        # --- shutdown --------------------------------------------------------------
+        SHUTTING_DOWN=false
+        shutdown() {
+            SHUTTING_DOWN=true
+            echo "Shutting down"
+            kill -TERM "$$NEXTJS_PID" "$$REDIS_PID" "$$NGINX_PID" 2>/dev/null || true
+            wait 2>/dev/null || true
+            exit 0
+        }
+        trap shutdown TERM INT
+
+        while true; do
+            wait "$$NEXTJS_PID"
+            EXIT_CODE=$$?
+            if [ "$$SHUTTING_DOWN" = true ]; then
+                exit 0
+            fi
+            echo "Next.js exited with code $$EXIT_CODE, restarting in 1s..."
+            sleep 1
+            node apps/nextjs/server.js &
+            NEXTJS_PID=$$!
+        done
+    ports:
+      - "8149:7575"
+    environment:
+      TZ: "Asia/Shanghai"
+      DB_DIALECT: "sqlite"
+      DB_DRIVER: "better-sqlite3"
+      DB_URL: "/appdata/db/db.sqlite"
+    volumes:
+      - /Volume1/DockerAppData/homarrdocker/appdata:/appdata
+    healthcheck:
+      test: ["CMD", "node", "-e", "require(\"http\").get(\"http://127.0.0.1:7575/\",r=>process.exit(r.statusCode<500?0:1)).on(\"error\",()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+# TOS App Center web metadata (must be the last block of the file):
+# web.port is the published host port above, protocol is http.
+x-app-meta:
+  web:
+    port: 8149
+    protocol: http

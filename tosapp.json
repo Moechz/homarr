@@ -23,54 +23,16 @@
   "auth": "Homarr",
   "upstream_url": "https://github.com/homarr-labs/homarr",
   "upstream_license": "Apache-2.0",
-  "descript": "Homarr is a modern dashboard for all your self-hosted services: drag-and-drop apps and widgets, 80+ integrations, built-in icons and authentication. This package runs the upstream image (mirrored to Docker Hub by the maintainer) as a non-root container with SQLite in the application data folder. Only the x86_64 package is built because the mirrored image is amd64.",
-  "release_note": "1. First release.",
-  "important": "Open the web UI on port 8149 and complete the onboarding wizard (create the admin account, then add apps). Data lives in /Volume1/DockerAppData/homarrdocker/ and survives restarts and updates. The container runs as uid 1000. Needs DockerEngine; configure a registry mirror if Docker Hub is unreachable. Back up the data folder before uninstalling with data removal. Plain HTTP on the LAN.",
-  "probe": {
-    "user_in_image": "nobody",
-    "entrypoint": null,
-    "cmd": [
-      "sh",
-      "start.sh",
-      "prd"
-    ],
-    "exposed_ports": [
-      8080
-    ],
-    "declared_volumes": [],
-    "image_healthcheck": [
-      "CMD-SHELL",
-      "python healthcheck.py"
-    ],
-    "digest": "daya0576/beaverhabits@sha256:6cd7e464207369785c88cfd59f99c6cc44ec57f3a8d90c3439908da42271d69f",
-    "architecture": "x86_64",
-    "platforms": [],
-    "http_client_in_image": "",
-    "trial_run": {
-      "ok": false,
-      "http_code": "",
-      "state": "exited",
-      "paths": [],
-      "host_port": 18000,
-      "log_tail": "21, in connect\n    await_only(connection),\n    ~~~~~~~~~~^^^^^^^^^^^^\n  File \"/opt/pysetup/.venv/lib/python3.14/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"/opt/pysetup/.venv/lib/python3.14/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n  File \"/opt/pysetup/.venv/lib/python3.14/site-packages/aiosqlite/core.py\", line 168, in _connect\n    self._connection = await future\n                       ^^^^^^^^^^^^\n  File \"/opt/pysetup/.venv/lib/python3.14/site-packages/aiosqlite/core.py\", line 63, in _connection_worker_thread\n    result = function()\n  File \"/opt/pysetup/.venv/lib/python3.14/site-packages/aiosqlite/core.py\", line 466, in connector\n    return sqlite3.connect(loc, **kwargs)\n           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^\nsqlalchemy.exc.OperationalError: (sqlite3.OperationalError) unable to open database file\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\n\n[2026-11-10 04:59:36 +0000] [11] [ERROR] Application startup failed. Exiting.\n[2026-11-10 04:59:36 +0000] [11] [INFO] Worker exiting (pid: 11)\n[2026-11-10 04:59:36 +0000] [9] [ERROR] Worker (pid:11) exited with code 3.\n[2026-11-10 04:59:36 +0000] [9] [ERROR] Shutting down: Master\n[2026-11-10 04:59:36 +0000] [9] [ERROR] Reason: Worker failed to boot.",
-      "files_in_mounts": ""
-    },
-    "docker_hub": {},
-    "github": {
-      "owner": "daya0576",
-      "repo": "beaverhabits",
-      "description": "A self-hosted habit tracking app without \"Goals\"",
-      "license": "BSD-3-Clause",
-      "homepage": "https://beaverhabits.com/demo"
-    }
-  },
+  "descript": "Homarr is a self-hosted dashboard and start page: drag-and-drop apps into boards, add widgets for your media servers, download clients, Pi-hole or AdGuard, weather, RSS and calendars, and search across your bookmarks. It runs entirely on your NAS with a local SQLite database and built-in user accounts. This package runs the upstream image as a non-root container and ships the x86_64 package only, because the Docker Hub mirror is amd64.",
+  "release_note": "3. Remediation of the 2.13.0-2 review findings. Added PRIVACY.md, NOTICE.md and a complete README covering repository layout, data and uninstall, privacy and notices. Disclosed every third-party endpoint, including Open-Meteo weather and geocoding, jsDelivr and GitHub icon repositories, Docker Hub, PostHog usage analytics and the services configured in widgets. Rewrote the zh-cn and zh-hk descriptions, which still described a different application. Replaced the entrypoint so nginx serves port 7575 and proxies /websockets to 3001, added cap_drop ALL and no-new-privileges, and rebuilt deterministically so the published SHA-256 can be verified. Upstream 2.14.0 exists only on ghcr.io and the Docker Hub mirror has no arm64 or newer tag, so the image stays at 2.13.0 and the CVE follow-up is documented. x86_64 only.",
+  "important": "Open http://<NAS-IP>:8149/ and finish the onboarding wizard: create the admin account, then add apps. Data lives in /Volume1/DockerAppData/homarrdocker/ and survives restarts and updates. The container runs as uid 1000 with all capabilities dropped. Widgets and icons contact third-party services only when you configure them. Back up the data folder before uninstalling with data removal. Plain HTTP on the LAN. x86_64 only: no arm64 image is published on Docker Hub.",
   "healthcheck": [
     "CMD",
     "node",
     "-e",
     "require(\"http\").get(\"http://127.0.0.1:7575/\",r=>process.exit(r.statusCode<500?0:1)).on(\"error\",()=>process.exit(1))"
   ],
-  "entrypoint_file": "specs/homarrdocker-entrypoint.sh",
+  "entrypoint_file": "src/entrypoint.sh",
   "platform": "x86_64",
   "user": "1000:1000",
   "publisher": "Moechz",
@@ -78,10 +40,10 @@
   "github_repo": "homarr",
   "upstream_version": "2.13.0",
   "release_tag_prefix": "v",
-  "version": "2.13.0-1",
-  "help": "https://github.com/Moechz/homarr/issues",
+  "version": "2.13.0-3",
+  "help": "https://github.com/Moechz/homarr/blob/main/PRIVACY.md",
   "official": "https://github.com/homarr-labs/homarr",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "docker_socket": false,
   "group_add": [],
   "platforms": [
@@ -89,12 +51,12 @@
   ],
   "translations": {
     "zh-cn": {
-      "descript": "习惯打卡与连续天数统计，界面简洁。",
-      "important": "首次使用请打开网页完成初始化。数据保存在 DockerAppData/beaverhabitsdocker，重启和升级不会丢失。容器以 uid 1000 运行，挂载目录需对该用户可读。需要 DockerEngine；Docker Hub 不可达时先配置镜像加速。卸载并删除数据前请备份。局域网内为 HTTP。"
+      "descript": "Homarr 是自托管的仪表盘与起始页：把常用服务拖拽成看板，添加媒体服务器、下载器、Pi-hole/AdGuard、天气、RSS、日历等小部件，并可搜索书签。数据保存在本机 SQLite，内置账号登录。本包以非 root 容器运行上游镜像，仅提供 x86_64 版本，因为 Docker Hub 镜像只有 amd64。",
+      "important": "安装后打开 8149 端口完成初始化（创建管理员账号，再添加应用）。数据保存在 DockerAppData/homarrdocker，重启和升级不会丢失。容器以 uid 1000 运行并丢弃全部能力。小部件和图标只在你配置后访问第三方服务。卸载并删除数据前请备份。局域网内为 HTTP。本包仅支持 x86_64，Docker Hub 上没有 arm64 镜像。"
     },
     "zh-hk": {
-      "descript": "习惯打卡与连续天数统计，界面简洁。",
-      "important": "首次使用請開啟網頁完成初始化。資料保存在 DockerAppData/beaverhabitsdocker，重新啟動和升級不會遺失。容器以 uid 1000 運行，掛載目錄需對該使用者可讀。需要 DockerEngine；Docker Hub 不可達時先設定鏡像加速。解除安裝並刪除資料前請備份。區域網路內為 HTTP。"
+      "descript": "Homarr 是自託管的儀表板與起始頁：把常用服務拖曳成看板，加入媒體伺服器、下載器、Pi-hole/AdGuard、天氣、RSS、日曆等小工具，並可搜尋書籤。資料保存在本機 SQLite，內建帳號登入。本包以非 root 容器執行上游映像，僅提供 x86_64 版本，因為 Docker Hub 映像只有 amd64。",
+      "important": "安裝後開啟 8149 連接埠完成初始化（建立管理員帳號，再加入應用）。資料保存在 DockerAppData/homarrdocker，重新啟動和升級不會遺失。容器以 uid 1000 執行並捨棄全部能力。小工具和圖示只在你設定後存取第三方服務。解除安裝並刪除資料前請備份。區域網路內為 HTTP。本包僅支援 x86_64，Docker Hub 上沒有 arm64 映像。"
     }
   },
   "host_port": 8149,

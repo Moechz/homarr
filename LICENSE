@@ -23,12 +23,17 @@ SOFTWARE.
 -------------------------------------------------------------------------------
 Third-party notices
 
-Homarr is Copyright its upstream authors and is distributed under
-Apache-2.0. This repository only packages the
-official container image `moechz/homarr:v2.13.0` from Docker Hub unmodified; no
-upstream source code is distributed here. All trademarks belong to their owners.
-This is an independent community package, not affiliated with the upstream
-project or TerraMaster.
+Homarr is Copyright (c) Homarr Labs and contributors and is distributed under
+the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). This
+repository only packages the Docker Hub image `moechz/homarr:v2.13.0`
+unmodified; no upstream source code is distributed here. "Homarr" and the
+Homarr logo belong to the upstream project. All trademarks belong to their
+owners. This is an independent community package, not affiliated with the
+upstream project or TerraMaster.
 
-TOSAppSelfTestingTool is an official TerraMaster utility, redistributed here
-unmodified for local package validation.
+The container image also bundles nginx (BSD-2-Clause), Redis (RSALv2/SSPLv1),
+Node.js (MIT) and the upstream Next.js dependencies, each under its own licence.
+
+TOSAppSelfTestingTool is an official TerraMaster utility, kept in this source
+repository for local package validation and not included in the application
+archive.
